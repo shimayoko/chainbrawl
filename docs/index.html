@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'">
+<meta charset="utf-8">
+<title>ChainBrawl</title>
+<style>
+  * { box-sizing: border-box; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  body { margin:0; background:#0f0b1e; color:#eee; width:1280px; height:720px; overflow:hidden; }
+  header { padding:14px 24px; background:#1a1333; border-bottom:2px solid #7c3aed; }
+  header h1 { margin:0; font-size:22px; color:#a78bfa; }
+  header p { margin:2px 0 0; font-size:12px; color:#9ca3af; }
+  .wrap { display:flex; gap:14px; padding:16px 24px; }
+  .panel { background:#181230; border:1px solid #3a2a63; border-radius:10px; padding:14px; }
+  .fighter { width:300px; }
+  .arena { width:420px; }
+  .board { width:380px; }
+  h2 { font-size:15px; margin:0 0 8px; color:#c4b5fd; }
+  button { background:#7c3aed; color:#fff; border:none; padding:9px 14px; border-radius:6px; font-size:13px; cursor:pointer; }
+  button:disabled { background:#4b3b7a; cursor:default; }
+  .stats { display:none; margin-top:10px; font-size:13px; line-height:1.6; }
+  .stats.show { display:block; }
+  .stat-row { display:flex; justify-content:space-between; border-bottom:1px solid #2d2152; padding:3px 0; }
+  .stake-info { display:none; margin-top:10px; font-size:13px; color:#86efac; }
+  .stake-info.show { display:block; }
+  .log { display:none; margin-top:12px; background:#0f0b1e; border:1px solid #2d2152; border-radius:6px; padding:10px; font-size:12px; color:#d1d5db; }
+  .log.show { display:block; }
+  .log b { color:#facc15; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid #2d2152; }
+  th { color:#9ca3af; font-weight:600; }
+  tr.me { background:#2d1b55; }
+  .tag { font-size:11px; color:#7c3aed; background:#2d1b55; padding:2px 6px; border-radius:4px; }
+  footer { position:absolute; bottom:6px; left:24px; font-size:11px; color:#6b7280; }
+  .overlay { display:none; position:fixed; top:0; left:0; width:1280px; height:720px; background:#0f0b1eee; align-items:center; justify-content:center; }
+  .overlay.show { display:flex; }
+  .replay-box { width:560px; background:#181230; border:1px solid #7c3aed; border-radius:10px; padding:20px; }
+  .replay-box h2 { color:#facc15; }
+  .step { font-size:13px; padding:6px 0; border-bottom:1px dashed #3a2a63; color:#d1d5db; }
+  .btn-row { margin-top:14px; display:flex; gap:10px; }
+  .fight-btn { margin-top:10px; }
+  .small { font-size:11px; color:#9ca3af; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ChainBrawl</h1>
+  <p>Fully on-chain autobattler where every fight is computed and verified on Solana</p>
+</header>
+
+<div class="wrap">
+
+  <div class="panel fighter">
+    <h2>1. Mint Fighter NFT</h2>
+    <button data-demo="mint-btn" onclick="mintFighter()">Mint Fighter NFT</button>
+    <div class="stats" data-demo="fighter-stats" id="fighterStats">
+      <div class="stat-row"><span>Name</span><span>Brawler #4821</span></div>
+      <div class="stat-row"><span>STR</span><span>78</span></div>
+      <div class="stat-row"><span>SPD</span><span>64</span></div>
+      <div class="stat-row"><span>DEF</span><span>52</span></div>
+      <div class="stat-row"><span>Rarity</span><span class="tag">Epic</span></div>
+    </div>
+  </div>
+
+  <div class="panel arena">
+    <h2>2. Stake & Battle</h2>
+    <button data-demo="stake-btn" onclick="stakeSol()">Stake 0.5 SOL</button>
+    <div class="stake-info" data-demo="stake-info" id="stakeInfo">
+      ✓ 0.5 SOL locked in on-chain escrow PDA
+    </div>
+    <div class="fight-btn">
+      <button data-demo="fight-btn" onclick="runFight()">Resolve Battle (VRF)</button>
+    </div>
+    <div class="log" data-demo="battle-log" id="battleLog">
+      <div>VRF Seed: <b>0x4f2a...e91c</b></div>
+      <div>Brawler #4821 vs Brawler #1190</div>
+      <div>Result: <b>WIN</b> — +1.0 SOL payout</div>
+      <div class="small">Tx: 5h7k...pQ2z (verifiable on-chain)</div>
+      <button data-demo="view-replay-btn" onclick="toggleReplay(true)" style="margin-top:8px;">View Replay</button>
+    </div>
+  </div>
+
+  <div class="panel board">
+    <h2>Ranked Ladder</h2>
+    <table>
+      <tr><th>#</th><th>Player</th><th>Rating</th></tr>
+      <tr id="row1"><td>1</td><td>0xC4...a2</td><td>2140</td></tr>
+      <tr><td>2</td><td>0x9B...f1</td><td>2088</td></tr>
+      <tr><td>3</td><td>0x7E...d3</td><td>1990</td></tr>
+      <tr id="rowMe"><td id="meRank">4</td><td>You</td><td id="meRating">1850</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<div class="overlay" data-demo="replay-panel" id="replayOverlay">
+  <div class="replay-box">
+    <h2>On-Chain Battle Replay</h2>
+    <div class="step">Turn 1: Brawler #4821 attacks (STR 78) → 22 dmg</div>
+    <div class="step">Turn 2: Brawler #1190 attacks (STR 60) → 14 dmg</div>
+    <div class="step">Turn 3: VRF crit triggered → 2x dmg</div>
+    <div class="step">Turn 4: Brawler #1190 defeated</div>
+    <div class="btn-row">
+      <button data-demo="close-replay" onclick="toggleReplay(false)">Close</button>
+    </div>
+  </div>
+</div>
+
+<footer>Prototype — all data is simulated</footer>
+
+<script>
+function mintFighter(){
+  document.getElementById('fighterStats').classList.add('show');
+  var b = document.querySelector('[data-demo=mint-btn]');
+  b.textContent = 'Minted ✓';
+  b.disabled = true;
+}
+function stakeSol(){
+  document.getElementById('stakeInfo').classList.add('show');
+  var b = document.querySelector('[data-demo=stake-btn]');
+  b.textContent = 'Staked ✓';
+  b.disabled = true;
+}
+function runFight(){
+  document.getElementById('battleLog').classList.add('show');
+  document.getElementById('meRank').textContent = '1';
+  document.getElementById('meRating').textContent = '2160';
+  document.getElementById('rowMe').classList.add('me');
+}
+function toggleReplay(show){
+  document.getElementById('replayOverlay').classList.toggle('show', show);
+}
+</script>
+
+</body>
+</html>
